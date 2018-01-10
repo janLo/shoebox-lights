@@ -2,6 +2,11 @@
 
 #include <FastLED.h>
 
+#include <Shoebox.h>
+#include <Effects.h>
+#include <Button.h>
+#include <Wheel.h>
+
 /*
 red
 white
@@ -18,50 +23,82 @@ disco
 
 #define DATA_PIN_TOP 13
 #define DATA_PIN_BOTTOM 12
-#define LED_TYPE WS2812B
-#define COLOR_ORDER GRB
-#define NUM_LEDS 12
-#define LED_ROW 6
 
-#define BRIGHTNESS 96
 
-uint8_t pins[] = {2, 3, 4, 5};
-CRGB colors[] = {CRGB::Red, CRGB::White, CRGB::Yellow, CRGB::LightSkyBlue};
+ShoeBox box;
 
-CRGB currentColor = CRGB::White;
-CRGBArray<NUM_LEDS> all_leds; 
+
+UnicolorEffect uni_red(CRGB::Red);
+UnicolorEffect uni_white(CRGB::Wheat);
+UnicolorEffect uni_yellow(CRGB::Yellow);
+UnicolorEffect uni_lightSkyBlue(CRGB::SkyBlue);
+
+UnicolorEffect uni_select(CRGB::Black);
+
+DiscoEffect disco;
+
+//Effect *current_effect = new UnicolorEffect(CRGB::Red);
+Effect *current_effect = &disco;
+
+Button btn_red(2);
+Button btn_white(3);
+Button btn_yellow(4);
+Button btn_skyblue(5);
+
+Button btn_selecthue(6);
+
+Button btn_disco(7);
+
+Wheel whl_brightness(A0);
+Wheel whl_hue(A1);
+
+
+void changeEffect(Effect &effect) {
+    current_effect = &effect;
+    effect.restart();
+}
+
+uint8_t fixAnalogValue(const int val) {
+    return (uint8_t) ((val >> 2) & 0xff);
+}
 
 void setup() {
-  for (uint8_t i = 0; i < 4; ++i) {
-    pinMode(pins[i], INPUT);
-  }
+    Serial.begin(115200);
 
-  FastLED.addLeds<LED_TYPE, DATA_PIN_TOP, COLOR_ORDER>(all_leds,LED_ROW)
-      .setCorrection(TypicalLEDStrip);
-  FastLED.addLeds<LED_TYPE, DATA_PIN_BOTTOM, COLOR_ORDER>(all_leds+LED_ROW,LED_ROW)
-      .setCorrection(TypicalLEDStrip);
+    btn_red.connect([]() { changeEffect(uni_red); });
+    btn_white.connect([]() { changeEffect(uni_white); });
+    btn_yellow.connect([]() { changeEffect(uni_yellow); });
+    btn_skyblue.connect([]() { changeEffect(uni_lightSkyBlue); });
+
+    btn_selecthue.connect([]() { changeEffect(uni_select); });
+
+    btn_disco.connect([]() { changeEffect(disco); });
+
+    whl_brightness.connect([](const int brightness) {
+        box.brightness(fixAnalogValue(brightness));
+    });
+
+    whl_hue.connect([](const int hue) {
+        uni_select.changeHue(fixAnalogValue(hue));
+    });
+
+    box.setup();
 }
 
-void fill(CRGB color) {
-    all_leds = color;
-}
 
-
-uint8_t i = 0;
 void loop() {
 
-  all_leds.fill_rainbow(i++);
-  for (uint8_t i = 0; i < 4; ++i) {
-    int isPressed = digitalRead(pins[i]);
-    if (isPressed) {
-      currentColor = colors[i];
-      fill(currentColor);
-    }
-  }
+    whl_brightness.loop();
+    whl_hue.loop();
 
-//  uint16_t val = analogRead(14);
+    btn_red.loop();
+    btn_white.loop();
+    btn_yellow.loop();
+    btn_skyblue.loop();
+    btn_selecthue.loop();
+    btn_disco.loop();
 
-//  FastLED.setBrightness(val / 4);
+    current_effect->loop(box);
 
-  FastLED.show();
+    box.loop();
 }
